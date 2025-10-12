@@ -1,0 +1,27 @@
+# OS-specific
+# Ubuntu/Debian
+#sudo add-apt-repository ppa:deadsnakes/ppa
+#sudo apt update
+#sudo apt install python3.13 python3.13-dev python3.13-venv
+
+# CUDA
+cuda-toolkit-13-0>=13.0.0
+
+# Core PyTorch packages with CUDA support
+torch>=2.6.0
+torchvision>=0.21.0
+torchaudio>=2.6.0
+
+# Jupyter ecosystem
+jupyter>=1.1.0
+jupyterlab>=4.4.0
+ipywidgets>=8.1.0
+
+# Web scraping
+scrapy>=2.13.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# database
+sqlite3>=3.42.0
+SQLAlchemy>=2.0.30
