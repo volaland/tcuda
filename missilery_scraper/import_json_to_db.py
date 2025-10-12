@@ -120,23 +120,99 @@ class JSONToDatabaseImporter:
         self.session.commit()
         print(f"Basic missiles import completed. Created: {self.stats['missiles_created']}")
     
-    def import_detailed_missiles(self, detailed_json_path, detailed_dir):
+    def import_detailed_missiles(self, detailed_json_path, detailed_dir, basic_json_path=None):
         """Import detailed missile data from missiles_detailed.json and individual files"""
         print(f"Importing detailed missiles from {detailed_json_path}...")
         
         with open(detailed_json_path, 'r', encoding='utf-8') as f:
             detailed_index = json.load(f)
         
+        # Load basic data for additional metadata if available
+        basic_data = {}
+        if basic_json_path and os.path.exists(basic_json_path):
+            with open(basic_json_path, 'r', encoding='utf-8') as f:
+                basic_missiles = json.load(f)
+                # Create a lookup by detail_page_url
+                basic_data = {missile['detail_page_url']: missile for missile in basic_missiles}
+        
         for detailed_entry in detailed_index:
             try:
-                # Find the corresponding missile
+                # Find the corresponding missile or create it
                 missile = self.session.query(Missile).filter_by(
                     detail_page_url=detailed_entry['detail_page_url']
                 ).first()
                 
                 if not missile:
-                    print(f"Warning: Missile not found for {detailed_entry['name']}")
-                    continue
+                    # Create missile from detailed entry and basic data if available
+                    basic_info = basic_data.get(detailed_entry['detail_page_url'], {})
+                    
+                    # Create or get related entities from basic data
+                    country = None
+                    if basic_info.get('country'):
+                        country = get_or_create(
+                            self.session, Country, 
+                            name=basic_info['country']
+                        )
+                        if country.id not in [c.id for c in self.session.query(Country).all()]:
+                            self.stats['countries_created'] += 1
+                    
+                    purpose = None
+                    if basic_info.get('purpose'):
+                        purpose = get_or_create(
+                            self.session, Purpose,
+                            name=basic_info['purpose']
+                        )
+                        if purpose.id not in [p.id for p in self.session.query(Purpose).all()]:
+                            self.stats['purposes_created'] += 1
+                    
+                    base_type = None
+                    if basic_info.get('base'):
+                        base_type = get_or_create(
+                            self.session, BaseType,
+                            name=basic_info['base']
+                        )
+                        if base_type.id not in [b.id for b in self.session.query(BaseType).all()]:
+                            self.stats['base_types_created'] += 1
+                    
+                    warhead_type = None
+                    if basic_info.get('warhead'):
+                        warhead_type = get_or_create(
+                            self.session, WarheadType,
+                            name=basic_info['warhead']
+                        )
+                        if warhead_type.id not in [w.id for w in self.session.query(WarheadType).all()]:
+                            self.stats['warhead_types_created'] += 1
+                    
+                    guidance_system = None
+                    if basic_info.get('guidance_system'):
+                        guidance_system = get_or_create(
+                            self.session, GuidanceSystem,
+                            name=basic_info['guidance_system']
+                        )
+                        if guidance_system.id not in [g.id for g in self.session.query(GuidanceSystem).all()]:
+                            self.stats['guidance_systems_created'] += 1
+                    
+                    # Create missile
+                    missile = Missile(
+                        name=detailed_entry['name'],
+                        detail_page_url=detailed_entry['detail_page_url'],
+                        index_page_url=detailed_entry['index_page_url'],
+                        page_number=detailed_entry['page_number'],
+                        range_km=basic_info.get('range_km'),
+                        year_developed=basic_info.get('year_developed'),
+                        description=basic_info.get('description', ''),
+                        country_id=country.id if country else None,
+                        purpose_id=purpose.id if purpose else None,
+                        base_type_id=base_type.id if base_type else None,
+                        warhead_type_id=warhead_type.id if warhead_type else None,
+                        guidance_system_id=guidance_system.id if guidance_system else None,
+                        is_detailed=True,  # All detailed entries are detailed
+                        scraped_at=datetime.utcnow()
+                    )
+                    
+                    self.session.add(missile)
+                    self.session.flush()  # Get the ID
+                    self.stats['missiles_created'] += 1
                 
                 # Load detailed data from individual file
                 detailed_file_path = os.path.join(detailed_dir, detailed_entry['detailed_filename'])
@@ -310,8 +386,8 @@ def main():
     importer.db_manager.create_tables()
     
     print("Starting data import...")
-    importer.import_basic_missiles(str(basic_json))
-    importer.import_detailed_missiles(str(detailed_json), str(detailed_dir))
+    # Import all missiles from detailed data, using basic data for additional metadata
+    importer.import_detailed_missiles(str(detailed_json), str(detailed_dir), str(basic_json))
     importer.create_scraping_session()
     
     importer.print_statistics()
