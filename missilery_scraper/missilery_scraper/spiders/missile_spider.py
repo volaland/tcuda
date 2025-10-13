@@ -3,41 +3,37 @@ import re
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 from ..items import MissileItem
+from ..constants import (
+    SPIDER_NAME, ALLOWED_DOMAINS, START_URLS, MAX_PAGE_DISCOVERY_LIMIT,
+    TRANSLITERATION_MAP, DATA_DIR, DETAILED_DIR, BASIC_JSON_FILE, DETAILED_JSON_FILE,
+    H2_TAG, A_TAG, HREF_ATTR, MISSILE_CARD_SELECTOR, PAGINATION_SELECTOR,
+    JSON_EXTENSION, CHARACTERISTICS_DELIMITER
+)
 
 class MissileSpider(scrapy.Spider):
-    name = 'missile_spider'
-    allowed_domains = ['missilery.info']
-    start_urls = ['https://missilery.info/search']
+    name = SPIDER_NAME
+    allowed_domains = ALLOWED_DOMAINS
+    start_urls = START_URLS
 
     def __init__(self, *args, **kwargs):
         super(MissileSpider, self).__init__(*args, **kwargs)
         self.discovered_pages = set()
         self.processed_pages = set()
-        self.max_page = 22  # Stop at page 22 as requested
+        self.max_page = None  # Will be discovered dynamically
+        self.last_page_found = False
         
         # Ensure all required directories exist from the start
         self.ensure_directories()
         
         # Russian to Latin transliteration mapping
-        self.transliteration_map = {
-            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo',
-            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-            'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-            'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
-            'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'Yo',
-            'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
-            'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
-            'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch',
-        'Ъ': '', 'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
-    }
+        self.transliteration_map = TRANSLITERATION_MAP
 
     def ensure_directories(self):
         """Ensure all required directories exist"""
         import os
-        os.makedirs('data', exist_ok=True)
-        os.makedirs('data/detailed', exist_ok=True)
-        self.logger.info("Ensured data directories exist: data/ and data/detailed/")
+        os.makedirs(DATA_DIR, exist_ok=True)
+        os.makedirs(DETAILED_DIR, exist_ok=True)
+        self.logger.info(f"Ensured data directories exist: {DATA_DIR}/ and {DETAILED_DIR}/")
 
     def transliterate_russian(self, text):
         """Transliterate Russian text to Latin ASCII"""
@@ -63,6 +59,14 @@ class MissileSpider(scrapy.Spider):
         page_number = response.meta.get('page_number', 1)
         current_url = response.url
         
+        # Adjust page numbering: first page (no param) is page 1, ?page=0 is page 2, etc.
+        if 'page=' not in response.url:
+            page_number = 1
+        else:
+            page_match = re.search(r'page=(\d+)', response.url)
+            if page_match:
+                page_number = int(page_match.group(1)) + 1  # ?page=0 is page 2, ?page=1 is page 3, etc.
+        
         # Mark this page as processed
         self.processed_pages.add(current_url)
         
@@ -75,29 +79,86 @@ class MissileSpider(scrapy.Spider):
     def discover_pagination_links(self, response):
         """Discover pagination links and yield requests for more pages"""
         self.logger.info(f"Discovering pagination links from: {response.url}")
-        
-        # Look for pagination links
-        pagination_links = response.css('a[href*="page="]::attr(href)').getall()
+
+        # First, try to discover the last page number from pagination
+        if not self.last_page_found:
+            self.discover_last_page_number(response)
+
+        # Look for pagination links in the pagination ul element
+        pagination_ul = response.css(PAGINATION_SELECTOR)
+        pagination_links = pagination_ul.css('a::attr(href)').getall()
         self.logger.info(f"Found {len(pagination_links)} pagination links")
-        
+
+        # Also check for any links with page parameter as fallback
+        page_param_links = response.css('a[href*="page="]::attr(href)').getall()
+        if page_param_links:
+            pagination_links.extend(page_param_links)
+            self.logger.info(f"Found additional {len(page_param_links)} page parameter links")
+
+        # Remove duplicates
+        pagination_links = list(set(pagination_links))
+        self.logger.info(f"Total unique pagination links: {len(pagination_links)}")
+
         for link in pagination_links:
+            if not link:
+                continue
+
             full_url = urljoin(response.url, link)
-            
+
             # Extract page number from URL
             page_match = re.search(r'page=(\d+)', full_url)
             if page_match:
                 page_num = int(page_match.group(1))
-                
-                # Only process pages up to max_page and not already processed
-                if page_num <= self.max_page and full_url not in self.discovered_pages and full_url not in self.processed_pages:
+                # Only process pages not already processed
+                if full_url not in self.discovered_pages and full_url not in self.processed_pages:
                     self.discovered_pages.add(full_url)
-                    self.logger.info(f"Yielding request for page {page_num}: {full_url}")
+                    self.logger.info(f"Yielding request for page {page_num + 1}: {full_url}")
                     yield scrapy.Request(
                         url=full_url,
                         callback=self.parse,
-                        meta={'page_number': page_num},
+                        meta={'page_number': page_num + 1},
                         dont_filter=True
                     )
+            else:
+                # Handle case where page number might be in the path or other format
+                self.logger.debug(f"Could not extract page number from: {full_url}")
+
+        # Generate all page URLs if we know the last page
+        if self.max_page is not None and not self.last_page_found:
+            self.logger.info(f"Generating requests for all pages 0 to {self.max_page}")
+            for page_param in range(0, self.max_page + 1):
+                page_url = f"https://missilery.info/search?page={page_param}" if page_param > 0 else "https://missilery.info/search"
+                if page_url not in self.discovered_pages and page_url not in self.processed_pages:
+                    self.discovered_pages.add(page_url)
+                    self.logger.info(f"Generated request for page {page_param + 1}: {page_url}")
+                    yield scrapy.Request(
+                        url=page_url,
+                        callback=self.parse,
+                        meta={'page_number': page_param + 1},
+                        dont_filter=True
+                    )
+            self.last_page_found = True
+
+    def discover_last_page_number(self, response):
+        """Discover the last page number from pagination"""
+        # Look for the last page number in pagination
+        pagination_ul = response.css(PAGINATION_SELECTOR)
+        page_links = pagination_ul.css('a::attr(href)').getall()
+        
+        max_page_num = 0
+        for link in page_links:
+            page_match = re.search(r'page=(\d+)', link)
+            if page_match:
+                page_num = int(page_match.group(1))
+                max_page_num = max(max_page_num, page_num)
+        
+        if max_page_num > 0:
+            self.max_page = max_page_num
+            self.logger.info(f"Discovered last page number: {self.max_page}")
+        else:
+            # Fallback: if we can't find pagination, assume reasonable limit
+            self.max_page = MAX_PAGE_DISCOVERY_LIMIT
+            self.logger.warning(f"Could not discover last page, using fallback: {self.max_page}")
     
     def extract_missile_data_from_index(self, response, page_number):
         """Extract structured missile data from index page"""

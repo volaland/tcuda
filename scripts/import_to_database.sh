@@ -22,6 +22,7 @@ show_help() {
   echo ""
   echo "Options:"
   echo "  --database NAME     Set database name (default: missilery.db)"
+  echo "  --update            Update existing records instead of creating new ones"
   echo "  --help, -h          Show this help message"
   echo ""
   echo "This script imports scraped JSON data into a SQLite database"
@@ -39,6 +40,7 @@ show_help() {
 }
 
 # --- Parse arguments ---
+UPDATE_MODE=""
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         --database)
@@ -49,6 +51,10 @@ while [[ "$#" -gt 0 ]]; do
                 echo -e "${RED}Error: --database requires a name.${NC}"
                 exit 1
             fi
+            ;;
+        --update)
+            UPDATE_MODE="--update"
+            shift
             ;;
         -h|--help)
             show_help
@@ -65,15 +71,6 @@ done
 # --- Change to project root directory ---
 cd "$PROJECT_ROOT"
 
-# --- Check if script is run from project root ---
-if [ ! -f "requirements.txt" ]; then
-    echo -e "${RED}Error: requirements.txt not found. Please run this script from the project root directory.${NC}"
-    echo -e "${YELLOW}Expected location: $(pwd)/requirements.txt${NC}"
-    exit 1
-fi
-
-# --- Check prerequisites ---
-echo -e "${BLUE}[INFO]${NC} Checking prerequisites..."
 
 # Check if virtual environment exists
 if [ ! -f "${VENV_PATH}/bin/activate" ]; then
@@ -110,19 +107,20 @@ echo -e "${BLUE}[INFO]${NC} Activating virtual environment..."
 source "${VENV_PATH}/bin/activate"
 
 # --- Install database dependencies ---
-echo -e "${BLUE}[INFO]${NC} Installing database dependencies..."
-pip install -r "${PROJECT_DIR}/requirements_db.txt"
-
-# --- Run database import ---
-echo -e "${BLUE}[INFO]${NC} Starting database import..."
-echo -e "${YELLOW}[INFO]${NC} Database will be created as: ${DATABASE_NAME}"
+if [ -n "$UPDATE_MODE" ]; then
+    echo -e "${BLUE}[INFO]${NC} Starting database update..."
+    echo -e "${YELLOW}[INFO]${NC} Database will be updated: ${DATABASE_NAME}"
+else
+    echo -e "${BLUE}[INFO]${NC} Starting database import..."
+    echo -e "${YELLOW}[INFO]${NC} Database will be created as: ${DATABASE_NAME}"
+fi
 echo ""
 
 # Change to the project directory
 cd "${PROJECT_DIR}"
 
 # Run the import script
-python import_json_to_db.py
+python -m missilery_db.import_json_to_db --database "${DATABASE_NAME}" ${UPDATE_MODE}
 
 IMPORT_EXIT_CODE=$?
 

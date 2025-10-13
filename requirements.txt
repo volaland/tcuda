@@ -5,7 +5,7 @@
 #sudo apt install python3.13 python3.13-dev python3.13-venv
 
 # CUDA
-cuda-toolkit-13-0>=13.0.0
+# cuda-toolkit-13-0>=13.0.0
 
 # Core PyTorch packages with CUDA support
 torch>=2.6.0
@@ -23,5 +23,4 @@ beautifulsoup4>=4.12.0
 lxml>=4.9.0
 
 # database
-sqlite3>=3.42.0
 SQLAlchemy>=2.0.30

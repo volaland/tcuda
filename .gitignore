@@ -4,6 +4,7 @@ missilery_scraper/*.log
 
 # SQLite database
 missilery_scraper/missilery.db
+missilery_scraper/missilery_data.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

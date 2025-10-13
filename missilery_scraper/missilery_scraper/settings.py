@@ -1,47 +1,47 @@
 # Scrapy settings for missilery_scraper project
 
-BOT_NAME = 'missilery_scraper'
+from .constants import (
+    BOT_NAME, SPIDER_MODULES, NEWSPIDER_MODULE, ROBOTSTXT_OBEY,
+    DOWNLOAD_DELAY, RANDOMIZE_DOWNLOAD_DELAY, CONCURRENT_REQUESTS,
+    CONCURRENT_REQUESTS_PER_DOMAIN, USER_AGENT, ITEM_PIPELINES,
+    LOG_LEVEL, RETRY_TIMES, RETRY_HTTP_CODES, DOWNLOAD_TIMEOUT,
+    COOKIES_ENABLED, DEFAULT_REQUEST_HEADERS
+)
 
-SPIDER_MODULES = ['missilery_scraper.spiders']
-NEWSPIDER_MODULE = 'missilery_scraper.spiders'
+# Bot configuration
+BOT_NAME = BOT_NAME
+SPIDER_MODULES = SPIDER_MODULES
+NEWSPIDER_MODULE = NEWSPIDER_MODULE
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = False
+ROBOTSTXT_OBEY = ROBOTSTXT_OBEY
 
 # Configure delays for requests for the same website (default: 0)
-DOWNLOAD_DELAY = 1
-RANDOMIZE_DOWNLOAD_DELAY = 0.5
+DOWNLOAD_DELAY = DOWNLOAD_DELAY
+RANDOMIZE_DOWNLOAD_DELAY = RANDOMIZE_DOWNLOAD_DELAY
 
 # Configure concurrent requests
-CONCURRENT_REQUESTS = 16
-CONCURRENT_REQUESTS_PER_DOMAIN = 8
+CONCURRENT_REQUESTS = CONCURRENT_REQUESTS
+CONCURRENT_REQUESTS_PER_DOMAIN = CONCURRENT_REQUESTS_PER_DOMAIN
 
 # Configure user agent
-USER_AGENT = 'missilery_scraper (+http://www.yourdomain.com)'
+USER_AGENT = USER_AGENT
 
 # Configure pipelines
-ITEM_PIPELINES = {
-    'missilery_scraper.pipelines.DataSeparationPipeline': 300,
-}
+ITEM_PIPELINES = ITEM_PIPELINES
 
 # Configure logging
-LOG_LEVEL = 'INFO'
+LOG_LEVEL = LOG_LEVEL
 
 # Configure retry settings
-RETRY_TIMES = 3
-RETRY_HTTP_CODES = [500, 502, 503, 504, 522, 524, 408, 429]
+RETRY_TIMES = RETRY_TIMES
+RETRY_HTTP_CODES = RETRY_HTTP_CODES
 
 # Configure download timeout
-DOWNLOAD_TIMEOUT = 30
+DOWNLOAD_TIMEOUT = DOWNLOAD_TIMEOUT
 
 # Configure cookies
-COOKIES_ENABLED = True
+COOKIES_ENABLED = COOKIES_ENABLED
 
 # Configure headers
-DEFAULT_REQUEST_HEADERS = {
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-}
+DEFAULT_REQUEST_HEADERS = DEFAULT_REQUEST_HEADERS

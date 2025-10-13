@@ -1,10 +1,15 @@
 import sqlite3
 import re
 from bs4 import BeautifulSoup
-from database import DatabaseManager
+from missilery_db.database import DatabaseManager
+from .constants import (
+    DEFAULT_DATABASE_PATH, H2_TAG, CHARACTERISTICS_DELIMITER,
+    BASE_PATTERN, PURPOSE_PATTERN, WARHEAD_PATTERN, GUIDANCE_PATTERN,
+    COUNTRY_PATTERN, RANGE_PATTERN, YEAR_PATTERN, TECHNICAL_PATTERNS
+)
 
 class DataProcessor:
-    def __init__(self, db_path="missilery_data.db"):
+    def __init__(self, db_path=DEFAULT_DATABASE_PATH):
         self.db = DatabaseManager(db_path)
     
     def process_stage2_data(self):
@@ -52,7 +57,7 @@ class DataProcessor:
         }
         
         # Extract name
-        name_elem = card.find('h2')
+        name_elem = card.find(H2_TAG)
         if name_elem:
             name_link = name_elem.find('a')
             if name_link:
@@ -68,37 +73,37 @@ class DataProcessor:
         card_text = card.get_text()
         
         # Base (Баз.)
-        base_match = re.search(r'Баз\.\s*([^\n\r]+)', card_text)
+        base_match = re.search(BASE_PATTERN, card_text)
         if base_match:
             missile_data['base'] = base_match.group(1).strip()
         
         # Purpose (Наз.)
-        purpose_match = re.search(r'Наз\.\s*([^\n\r]+)', card_text)
+        purpose_match = re.search(PURPOSE_PATTERN, card_text)
         if purpose_match:
             missile_data['purpose'] = purpose_match.group(1).strip()
         
         # Warhead (Б/Ч.)
-        warhead_match = re.search(r'Б/Ч\.\s*([^\n\r]+)', card_text)
+        warhead_match = re.search(WARHEAD_PATTERN, card_text)
         if warhead_match:
             missile_data['warhead'] = warhead_match.group(1).strip()
         
         # Guidance System (C/У.)
-        guidance_match = re.search(r'C/У\.\s*([^\n\r]+)', card_text)
+        guidance_match = re.search(GUIDANCE_PATTERN, card_text)
         if guidance_match:
             missile_data['guidance_system'] = guidance_match.group(1).strip()
         
         # Country (Стр.)
-        country_match = re.search(r'Стр\.\s*([^\n\r]+)', card_text)
+        country_match = re.search(COUNTRY_PATTERN, card_text)
         if country_match:
             missile_data['country'] = country_match.group(1).strip()
         
         # Range (км.)
-        range_match = re.search(r'(\d+)\s*км\.', card_text)
+        range_match = re.search(RANGE_PATTERN, card_text)
         if range_match:
             missile_data['range_km'] = int(range_match.group(1))
         
         # Year developed
-        year_match = re.search(r'(\d{4})\s*г\.', card_text)
+        year_match = re.search(YEAR_PATTERN, card_text)
         if year_match:
             missile_data['year_developed'] = int(year_match.group(1))
         
@@ -106,7 +111,7 @@ class DataProcessor:
     
     def get_detail_url_from_card(self, card):
         """Get detail page URL from card"""
-        name_elem = card.find('h2')
+        name_elem = card.find(H2_TAG)
         if name_elem:
             name_link = name_elem.find('a')
             if name_link:
@@ -180,19 +185,12 @@ class DataProcessor:
             # Look for characteristics in the following elements
             for elem in char_parent.find_next_siblings():
                 text = elem.get_text(strip=True)
-                if ':' in text:
-                    key, value = text.split(':', 1)
+                if CHARACTERISTICS_DELIMITER in text:
+                    key, value = text.split(CHARACTERISTICS_DELIMITER, 1)
                     characteristics[key.strip()] = value.strip()
         
         # Look for common characteristic patterns
-        char_patterns = [
-            (r'Длина[:\s]*([0-9.,\s]+)\s*м', 'length_m'),
-            (r'Диаметр[:\s]*([0-9.,\s]+)\s*м', 'diameter_m'),
-            (r'Масса[:\s]*([0-9.,\s]+)\s*кг', 'weight_kg'),
-            (r'Скорость[:\s]*([0-9.,\s]+)\s*м/с', 'speed_ms'),
-            (r'Высота[:\s]*([0-9.,\s]+)\s*м', 'altitude_m'),
-            (r'Точность[:\s]*([0-9.,\s]+)\s*м', 'accuracy_m'),
-        ]
+        char_patterns = TECHNICAL_PATTERNS
         
         page_text = soup.get_text()
         

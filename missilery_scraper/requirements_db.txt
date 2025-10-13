@@ -1,3 +1,0 @@
-# Database requirements for Missilery scraper
-SQLAlchemy>=2.0.30
-beautifulsoup4>=4.13.0

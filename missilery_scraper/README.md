@@ -101,7 +101,7 @@ missilery_scraper/
 │   ├── pipelines.py               # Data processing pipeline
 │   ├── settings.py                # Scrapy settings
 │   ├── database.py                # Database management
-│   └── data_processor.py          # Stage 2 data processing
+│   ├── data_processor.py          # Stage 2 data processing
 ├── run_scraper.py                 # Main execution script
 ├── requirements.txt               # Additional dependencies
 └── README.md                      # This file

@@ -10,36 +10,77 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from sqlalchemy.exc import IntegrityError
-from database_models import (
+from .database_models import (
     DatabaseManager, get_or_create, parse_comma_separated_values,
     Country, Purpose, BaseType, WarheadType, GuidanceSystem,
     Missile, MissileDetailedData, StructuredContent, StructuredContentLink,
     Characteristic, MissileImage, ScrapingSession
 )
+from .constants import (
+    DEFAULT_DATABASE_URL, STATS_KEYS, IMPORT_STATISTICS_TITLE,
+    SEPARATOR_LINE, BASIC_JSON_FILE, DETAILED_JSON_FILE, DETAILED_DIR,
+    FILE_NOT_FOUND_MESSAGES, IMPORT_ERROR_MESSAGES, MAX_LINK_TEXT_LENGTH,
+    DEFAULT_ENCODING
+)
 
 class JSONToDatabaseImporter:
-    def __init__(self, database_url="sqlite:///missilery.db"):
+    def __init__(self, database_url=DEFAULT_DATABASE_URL, update_mode=False):
         self.db_manager = DatabaseManager(database_url)
         self.session = self.db_manager.get_session()
-        self.stats = {
-            'countries_created': 0,
-            'purposes_created': 0,
-            'base_types_created': 0,
-            'warhead_types_created': 0,
-            'guidance_systems_created': 0,
-            'missiles_created': 0,
-            'detailed_data_created': 0,
-            'structured_content_created': 0,
-            'characteristics_created': 0,
-            'images_created': 0,
-            'errors': 0
-        }
+        self.update_mode = update_mode
+        self.stats = {key: 0 for key in STATS_KEYS.values()}
+    
+    def get_or_create_or_update(self, model_class, **kwargs):
+        """Get existing record, create new one, or update existing based on update_mode"""
+        # Find existing record by unique fields
+        existing = None
+        if hasattr(model_class, 'name'):
+            existing = self.session.query(model_class).filter_by(name=kwargs.get('name')).first()
+        elif hasattr(model_class, 'detail_page_url'):
+            existing = self.session.query(model_class).filter_by(detail_page_url=kwargs.get('detail_page_url')).first()
+        
+        if existing:
+            if self.update_mode:
+                # Update existing record
+                for key, value in kwargs.items():
+                    if hasattr(existing, key):
+                        setattr(existing, key, value)
+                return existing, 'updated'
+            else:
+                # Return existing without updating
+                return existing, 'existing'
+        else:
+            # Create new record
+            new_record = model_class(**kwargs)
+            self.session.add(new_record)
+            self.session.flush()  # Get the ID
+            return new_record, 'created'
+    
+    def clear_missile_data(self, detail_page_url):
+        """Clear existing data for a missile (for update mode)"""
+        if not self.update_mode:
+            return
+            
+        # Find the missile
+        missile = self.session.query(Missile).filter_by(detail_page_url=detail_page_url).first()
+        if not missile:
+            return
+            
+        # Delete related data
+        self.session.query(MissileDetailedData).filter_by(missile_id=missile.id).delete()
+        self.session.query(StructuredContent).filter_by(missile_id=missile.id).delete()
+        self.session.query(Characteristic).filter_by(missile_id=missile.id).delete()
+        self.session.query(MissileImage).filter_by(missile_id=missile.id).delete()
+        
+        # Update missile record
+        missile.is_detailed = True
+        missile.scraped_at = datetime.utcnow()
     
     def import_basic_missiles(self, basic_json_path):
         """Import basic missile data from missiles_basic.json"""
         print(f"Importing basic missiles from {basic_json_path}...")
         
-        with open(basic_json_path, 'r', encoding='utf-8') as f:
+        with open(basic_json_path, 'r', encoding=DEFAULT_ENCODING) as f:
             basic_data = json.load(f)
         
         for missile_data in basic_data:
@@ -47,51 +88,62 @@ class JSONToDatabaseImporter:
                 # Create or get related entities
                 country = None
                 if missile_data.get('country'):
-                    country = get_or_create(
-                        self.session, Country, 
+                    country, action = self.get_or_create_or_update(
+                        Country, 
                         name=missile_data['country']
                     )
-                    if country.id not in [c.id for c in self.session.query(Country).all()]:
+                    if action == 'created':
                         self.stats['countries_created'] += 1
+                    elif action == 'updated':
+                        self.stats['countries_updated'] += 1
                 
                 purpose = None
                 if missile_data.get('purpose'):
-                    purpose = get_or_create(
-                        self.session, Purpose,
+                    purpose, action = self.get_or_create_or_update(
+                        Purpose,
                         name=missile_data['purpose']
                     )
-                    if purpose.id not in [p.id for p in self.session.query(Purpose).all()]:
+                    if action == 'created':
                         self.stats['purposes_created'] += 1
+                    elif action == 'updated':
+                        self.stats['purposes_updated'] += 1
                 
                 base_type = None
                 if missile_data.get('base'):
-                    base_type = get_or_create(
-                        self.session, BaseType,
+                    base_type, action = self.get_or_create_or_update(
+                        BaseType,
                         name=missile_data['base']
                     )
-                    if base_type.id not in [b.id for b in self.session.query(BaseType).all()]:
+                    if action == 'created':
                         self.stats['base_types_created'] += 1
+                    elif action == 'updated':
+                        self.stats['base_types_updated'] += 1
                 
                 warhead_type = None
                 if missile_data.get('warhead'):
-                    warhead_type = get_or_create(
-                        self.session, WarheadType,
+                    warhead_type, action = self.get_or_create_or_update(
+                        WarheadType,
                         name=missile_data['warhead']
                     )
-                    if warhead_type.id not in [w.id for w in self.session.query(WarheadType).all()]:
+                    if action == 'created':
                         self.stats['warhead_types_created'] += 1
+                    elif action == 'updated':
+                        self.stats['warhead_types_updated'] += 1
                 
                 guidance_system = None
                 if missile_data.get('guidance_system'):
-                    guidance_system = get_or_create(
-                        self.session, GuidanceSystem,
+                    guidance_system, action = self.get_or_create_or_update(
+                        GuidanceSystem,
                         name=missile_data['guidance_system']
                     )
-                    if guidance_system.id not in [g.id for g in self.session.query(GuidanceSystem).all()]:
+                    if action == 'created':
                         self.stats['guidance_systems_created'] += 1
+                    elif action == 'updated':
+                        self.stats['guidance_systems_updated'] += 1
                 
-                # Create missile
-                missile = Missile(
+                # Create or update missile
+                missile, action = self.get_or_create_or_update(
+                    Missile,
                     name=missile_data['name'],
                     detail_page_url=missile_data['detail_page_url'],
                     index_page_url=missile_data['index_page_url'],
@@ -108,9 +160,10 @@ class JSONToDatabaseImporter:
                     scraped_at=datetime.utcnow()
                 )
                 
-                self.session.add(missile)
-                self.session.flush()  # Get the ID
-                self.stats['missiles_created'] += 1
+                if action == 'created':
+                    self.stats['missiles_created'] += 1
+                elif action == 'updated':
+                    self.stats['missiles_updated'] += 1
                 
             except Exception as e:
                 print(f"Error importing basic missile {missile_data.get('name', 'Unknown')}: {e}")
@@ -124,19 +177,23 @@ class JSONToDatabaseImporter:
         """Import detailed missile data from missiles_detailed.json and individual files"""
         print(f"Importing detailed missiles from {detailed_json_path}...")
         
-        with open(detailed_json_path, 'r', encoding='utf-8') as f:
+        with open(detailed_json_path, 'r', encoding=DEFAULT_ENCODING) as f:
             detailed_index = json.load(f)
         
         # Load basic data for additional metadata if available
         basic_data = {}
         if basic_json_path and os.path.exists(basic_json_path):
-            with open(basic_json_path, 'r', encoding='utf-8') as f:
+            with open(basic_json_path, 'r', encoding=DEFAULT_ENCODING) as f:
                 basic_missiles = json.load(f)
                 # Create a lookup by detail_page_url
                 basic_data = {missile['detail_page_url']: missile for missile in basic_missiles}
         
         for detailed_entry in detailed_index:
             try:
+                # Clear existing data if in update mode
+                if self.update_mode:
+                    self.clear_missile_data(detailed_entry['detail_page_url'])
+                
                 # Find the corresponding missile or create it
                 missile = self.session.query(Missile).filter_by(
                     detail_page_url=detailed_entry['detail_page_url']
@@ -149,51 +206,62 @@ class JSONToDatabaseImporter:
                     # Create or get related entities from basic data
                     country = None
                     if basic_info.get('country'):
-                        country = get_or_create(
-                            self.session, Country, 
+                        country, action = self.get_or_create_or_update(
+                            Country, 
                             name=basic_info['country']
                         )
-                        if country.id not in [c.id for c in self.session.query(Country).all()]:
+                        if action == 'created':
                             self.stats['countries_created'] += 1
+                        elif action == 'updated':
+                            self.stats['countries_updated'] += 1
                     
                     purpose = None
                     if basic_info.get('purpose'):
-                        purpose = get_or_create(
-                            self.session, Purpose,
+                        purpose, action = self.get_or_create_or_update(
+                            Purpose,
                             name=basic_info['purpose']
                         )
-                        if purpose.id not in [p.id for p in self.session.query(Purpose).all()]:
+                        if action == 'created':
                             self.stats['purposes_created'] += 1
+                        elif action == 'updated':
+                            self.stats['purposes_updated'] += 1
                     
                     base_type = None
                     if basic_info.get('base'):
-                        base_type = get_or_create(
-                            self.session, BaseType,
+                        base_type, action = self.get_or_create_or_update(
+                            BaseType,
                             name=basic_info['base']
                         )
-                        if base_type.id not in [b.id for b in self.session.query(BaseType).all()]:
+                        if action == 'created':
                             self.stats['base_types_created'] += 1
+                        elif action == 'updated':
+                            self.stats['base_types_updated'] += 1
                     
                     warhead_type = None
                     if basic_info.get('warhead'):
-                        warhead_type = get_or_create(
-                            self.session, WarheadType,
+                        warhead_type, action = self.get_or_create_or_update(
+                            WarheadType,
                             name=basic_info['warhead']
                         )
-                        if warhead_type.id not in [w.id for w in self.session.query(WarheadType).all()]:
+                        if action == 'created':
                             self.stats['warhead_types_created'] += 1
+                        elif action == 'updated':
+                            self.stats['warhead_types_updated'] += 1
                     
                     guidance_system = None
                     if basic_info.get('guidance_system'):
-                        guidance_system = get_or_create(
-                            self.session, GuidanceSystem,
+                        guidance_system, action = self.get_or_create_or_update(
+                            GuidanceSystem,
                             name=basic_info['guidance_system']
                         )
-                        if guidance_system.id not in [g.id for g in self.session.query(GuidanceSystem).all()]:
+                        if action == 'created':
                             self.stats['guidance_systems_created'] += 1
+                        elif action == 'updated':
+                            self.stats['guidance_systems_updated'] += 1
                     
                     # Create missile
-                    missile = Missile(
+                    missile, action = self.get_or_create_or_update(
+                        Missile,
                         name=detailed_entry['name'],
                         detail_page_url=detailed_entry['detail_page_url'],
                         index_page_url=detailed_entry['index_page_url'],
@@ -210,9 +278,10 @@ class JSONToDatabaseImporter:
                         scraped_at=datetime.utcnow()
                     )
                     
-                    self.session.add(missile)
-                    self.session.flush()  # Get the ID
-                    self.stats['missiles_created'] += 1
+                    if action == 'created':
+                        self.stats['missiles_created'] += 1
+                    elif action == 'updated':
+                        self.stats['missiles_updated'] += 1
                 
                 # Load detailed data from individual file
                 detailed_file_path = os.path.join(detailed_dir, detailed_entry['detailed_filename'])
@@ -220,7 +289,7 @@ class JSONToDatabaseImporter:
                     print(f"Warning: Detailed file not found: {detailed_file_path}")
                     continue
                 
-                with open(detailed_file_path, 'r', encoding='utf-8') as f:
+                with open(detailed_file_path, 'r', encoding=DEFAULT_ENCODING) as f:
                     detailed_data = json.load(f)
                 
                 # Create detailed data record
@@ -278,13 +347,13 @@ class JSONToDatabaseImporter:
                         link_record = StructuredContentLink(
                             structured_content_id=structured_record.id,
                             link_url=link_url,
-                            link_text=field_data.get('text', '')[:200]  # Truncate if too long
+                            link_text=field_data.get('text', '')[:MAX_LINK_TEXT_LENGTH]  # Truncate if too long
                         )
                         self.session.add(link_record)
                 
             except Exception as e:
-                print(f"Error importing structured content {field_name}: {e}")
-                self.stats['errors'] += 1
+                print(IMPORT_ERROR_MESSAGES['STRUCTURED_CONTENT'].format(field_name=field_name, error=e))
+                self.stats[STATS_KEYS['ERRORS']] += 1
                 continue
     
     def import_characteristics(self, missile_id, characteristics_table):
@@ -301,8 +370,8 @@ class JSONToDatabaseImporter:
                 self.stats['characteristics_created'] += 1
                 
             except Exception as e:
-                print(f"Error importing characteristic: {e}")
-                self.stats['errors'] += 1
+                print(IMPORT_ERROR_MESSAGES['CHARACTERISTIC'].format(error=e))
+                self.stats[STATS_KEYS['ERRORS']] += 1
                 continue
     
     def import_images(self, missile_id, image_urls, image_type):
@@ -320,8 +389,8 @@ class JSONToDatabaseImporter:
                 self.stats['images_created'] += 1
                 
             except Exception as e:
-                print(f"Error importing image {image_url}: {e}")
-                self.stats['errors'] += 1
+                print(IMPORT_ERROR_MESSAGES['IMAGE'].format(image_url=image_url, error=e))
+                self.stats[STATS_KEYS['ERRORS']] += 1
                 continue
     
     def create_scraping_session(self, session_name="Import Session"):
@@ -339,21 +408,21 @@ class JSONToDatabaseImporter:
     
     def print_statistics(self):
         """Print import statistics"""
-        print("\n" + "="*50)
-        print("IMPORT STATISTICS")
-        print("="*50)
-        print(f"Countries created: {self.stats['countries_created']}")
-        print(f"Purposes created: {self.stats['purposes_created']}")
-        print(f"Base types created: {self.stats['base_types_created']}")
-        print(f"Warhead types created: {self.stats['warhead_types_created']}")
-        print(f"Guidance systems created: {self.stats['guidance_systems_created']}")
-        print(f"Missiles created: {self.stats['missiles_created']}")
-        print(f"Detailed data created: {self.stats['detailed_data_created']}")
-        print(f"Structured content created: {self.stats['structured_content_created']}")
-        print(f"Characteristics created: {self.stats['characteristics_created']}")
-        print(f"Images created: {self.stats['images_created']}")
+        print("\n" + SEPARATOR_LINE)
+        print(IMPORT_STATISTICS_TITLE)
+        print(SEPARATOR_LINE)
+        print(f"Countries - Created: {self.stats['countries_created']}, Updated: {self.stats['countries_updated']}")
+        print(f"Purposes - Created: {self.stats['purposes_created']}, Updated: {self.stats['purposes_updated']}")
+        print(f"Base types - Created: {self.stats['base_types_created']}, Updated: {self.stats['base_types_updated']}")
+        print(f"Warhead types - Created: {self.stats['warhead_types_created']}, Updated: {self.stats['warhead_types_updated']}")
+        print(f"Guidance systems - Created: {self.stats['guidance_systems_created']}, Updated: {self.stats['guidance_systems_updated']}")
+        print(f"Missiles - Created: {self.stats['missiles_created']}, Updated: {self.stats['missiles_updated']}")
+        print(f"Detailed data - Created: {self.stats['detailed_data_created']}, Updated: {self.stats['detailed_data_updated']}")
+        print(f"Structured content - Created: {self.stats['structured_content_created']}, Updated: {self.stats['structured_content_updated']}")
+        print(f"Characteristics - Created: {self.stats['characteristics_created']}, Updated: {self.stats['characteristics_updated']}")
+        print(f"Images - Created: {self.stats['images_created']}, Updated: {self.stats['images_updated']}")
         print(f"Errors: {self.stats['errors']}")
-        print("="*50)
+        print(SEPARATOR_LINE)
     
     def close(self):
         """Close database connection"""
@@ -362,30 +431,45 @@ class JSONToDatabaseImporter:
 
 def main():
     """Main import function"""
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Import missile data to database')
+    parser.add_argument('--update', action='store_true', 
+                       help='Update existing records instead of creating new ones')
+    parser.add_argument('--database', default='missilery.db',
+                       help='Database file name (default: missilery.db)')
+    args = parser.parse_args()
+    
     # Check if data files exist
     data_dir = Path("data")
-    basic_json = data_dir / "missiles_basic.json"
-    detailed_json = data_dir / "missiles_detailed.json"
-    detailed_dir = data_dir / "detailed"
+    basic_json = data_dir / BASIC_JSON_FILE
+    detailed_json = data_dir / DETAILED_JSON_FILE
+    detailed_dir = data_dir / DETAILED_DIR
     
     if not basic_json.exists():
-        print(f"Error: {basic_json} not found!")
+        print(FILE_NOT_FOUND_MESSAGES['BASIC_JSON'].format(file=basic_json))
         sys.exit(1)
     
     if not detailed_json.exists():
-        print(f"Error: {detailed_json} not found!")
+        print(FILE_NOT_FOUND_MESSAGES['DETAILED_JSON'].format(file=detailed_json))
         sys.exit(1)
     
     if not detailed_dir.exists():
-        print(f"Error: {detailed_dir} not found!")
+        print(FILE_NOT_FOUND_MESSAGES['DETAILED_DIR'].format(dir=detailed_dir))
         sys.exit(1)
     
     # Create database and import data
-    print("Creating database schema...")
-    importer = JSONToDatabaseImporter()
+    mode_text = "updating" if args.update else "creating"
+    print(f"{mode_text.title()} database schema...")
+    
+    importer = JSONToDatabaseImporter(
+        database_url=f"sqlite:///{args.database}",
+        update_mode=args.update
+    )
     importer.db_manager.create_tables()
     
-    print("Starting data import...")
+    print(f"Starting data import ({mode_text} mode)...")
     # Import all missiles from detailed data, using basic data for additional metadata
     importer.import_detailed_missiles(str(detailed_json), str(detailed_dir), str(basic_json))
     importer.create_scraping_session()
@@ -393,8 +477,8 @@ def main():
     importer.print_statistics()
     importer.close()
     
-    print("\nImport completed successfully!")
-    print("Database saved as: missilery.db")
+    print(f"\nImport completed successfully!")
+    print(f"Database saved as: {args.database}")
 
 if __name__ == "__main__":
     main()

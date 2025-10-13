@@ -20,7 +20,7 @@ ROBOTSTXT_OBEY="False"
 CLOSESPIDER_ITEMCOUNT=""
 CLOSESPIDER_PAGECOUNT=""
 DOWNLOAD_DELAY="1" # Default delay in seconds
-MAX_PAGES_TO_SCRAPE="22" # Default max pages for full run
+MAX_PAGES_TO_SCRAPE="" # Dynamic pagination discovery - no fixed limit
 
 # --- Function to display help message ---
 show_help() {
@@ -32,7 +32,7 @@ show_help() {
   echo ""
   echo "Options:"
   echo "  --test              Quick test run (3 items, 1 page) [default]"
-  echo "  --full              Full scraping run (all ${MAX_PAGES_TO_SCRAPE} pages)"
+  echo "  --full              Full scraping run (dynamic pagination discovery)"
   echo "  --pages N           Custom run with N pages"
   echo "  --delay N           Set delay between requests to N seconds"
   echo "  --help, -h          Show this help message"
@@ -120,8 +120,8 @@ if [ "$MODE" == "test" ]; then
     CLOSESPIDER_PAGECOUNT="1"
     echo -e "${BLUE}[INFO]${NC} Running test mode (3 items, 1 page)..."
 elif [ "$MODE" == "full" ]; then
-    CLOSESPIDER_PAGECOUNT="${MAX_PAGES_TO_SCRAPE}"
-    echo -e "${BLUE}[INFO]${NC} Running full scraping mode (all ${MAX_PAGES_TO_SCRAPE} pages)..."
+    # No page limit - let spider discover all pages dynamically
+    echo -e "${BLUE}[INFO]${NC} Running full scraping mode (dynamic pagination discovery)..."
 elif [ "$MODE" == "custom" ]; then
     echo -e "${BLUE}[INFO]${NC} Running custom mode (${CLOSESPIDER_PAGECOUNT} pages, ${DOWNLOAD_DELAY}s delay)..."
 fi

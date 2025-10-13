@@ -2,7 +2,7 @@
 
 A comprehensive web scraping and database system for missile data from missilery.info, featuring PyTorch CUDA support, Scrapy web scraping, and SQLite database integration.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Setup Environment
 ```bash
@@ -24,9 +24,12 @@ A comprehensive web scraping and database system for missile data from missilery
 ### 3. Import to Database
 ```bash
 ./scripts/import_to_database.sh
+
+# Or use the database module directly
+python -m missilery_db import --database missilery.db
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 tcuda/
@@ -39,16 +42,19 @@ tcuda/
 │   │   ├── missiles_basic.json     # Basic missile data
 │   │   ├── missiles_detailed.json  # Detailed index
 │   │   └── detailed/               # Individual files
-│   ├── database_models.py          # SQLAlchemy models
-│   ├── import_json_to_db.py        # Import script
-│   ├── query_examples.py           # Query examples
+│   ├── missilery_db/               # Database module
+│   │   ├── database_models.py      # SQLAlchemy models
+│   │   ├── database.py             # Database management
+│   │   ├── import_json_to_db.py    # Import script
+│   │   ├── query_examples.py       # Query examples
+│   │   └── corrected_final_summary.py # Data analysis
 │   └── missilery.db                # SQLite database
 ├── requirements.txt                 # Python dependencies
 ├── .gitignore                      # Git ignore rules
 └── README.md                       # This file
 ```
 
-## 🛠️ Scripts Overview
+## Scripts Overview
 
 ### `./scripts/setup_env.sh`
 Sets up Python 3.13 environment with PyTorch CUDA support.
@@ -113,7 +119,42 @@ Options:
   --help, -h          Show help message
 ```
 
-## 📊 Database Schema
+## Database Module
+
+The `missilery_db` module provides a clean separation between web scraping and database operations:
+
+### Features
+- **Modular Design**: Self-contained database functionality
+- **Command Line Interface**: Easy-to-use CLI for common operations
+- **Programmatic API**: Clean Python API for custom applications
+- **Data Integrity**: Comprehensive validation and error handling
+
+### Usage
+```bash
+# Import data
+python -m missilery_db import --database missilery.db
+
+# Run queries
+python -m missilery_db query
+
+# Generate summary
+python -m missilery_db summary
+
+# Update existing data
+python -m missilery_db import --update --database missilery.db
+```
+
+### Programmatic Usage
+```python
+from missilery_db import DatabaseManager, Missile, Country
+
+# Initialize and query
+db = DatabaseManager("sqlite:///missilery.db")
+session = db.get_session()
+missiles = session.query(Missile).join(Country).all()
+```
+
+## Database Schema
 
 The database uses a normalized relational schema with 10 tables:
 
@@ -128,7 +169,7 @@ The database uses a normalized relational schema with 10 tables:
 - Support for 13,000+ records
 - 15MB SQLite database
 
-## 🔧 Prerequisites
+## Prerequisites
 
 ### System Requirements
 - **Python 3.13** (required)
@@ -142,7 +183,7 @@ The database uses a normalized relational schema with 10 tables:
 - BeautifulSoup4 4.13.0+ for HTML parsing
 - Jupyter ecosystem for notebooks
 
-## 📈 Data Statistics
+## Data Statistics
 
 ### Scraped Data
 - **448 missile records** with complete data
@@ -164,7 +205,7 @@ The database uses a normalized relational schema with 10 tables:
 - **Anti-Ship**: 37 missiles (8.3%)
 - **Anti-Tank**: 35 missiles (7.8%)
 
-## 🚨 Important Notes
+## Important Notes
 
 ### Script Execution
 - **All scripts must be run from the project root directory**
@@ -181,11 +222,11 @@ The database uses a normalized relational schema with 10 tables:
 - Prerequisites are checked before execution
 - Progress is reported throughout execution
 
-## 🔍 Query Examples
+## Query Examples
 
 ### Basic Queries
 ```python
-from missilery_scraper.database_models import DatabaseManager
+from missilery_db import DatabaseManager, Missile, Country, Purpose
 
 # Initialize database
 db = DatabaseManager("sqlite:///missilery_scraper/missilery.db")
@@ -200,11 +241,15 @@ strategic = session.query(Missile).join(Purpose).filter(Purpose.name.like('%Stra
 
 ### Run Example Queries
 ```bash
+# Using the database module
+python -m missilery_db query
+
+# Or run directly
 cd missilery_scraper
-python query_examples.py
+python -m missilery_db query
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -239,36 +284,36 @@ ls missilery_scraper/data/
 - Check error messages for specific guidance
 - Ensure all prerequisites are met
 
-## 📚 Documentation
+## Documentation
 
 - **Database Schema**: `missilery_scraper/DATABASE_SCHEMA.md`
 - **Analysis Summary**: `missilery_scraper/DATABASE_ANALYSIS_SUMMARY.md`
 - **Query Examples**: `missilery_scraper/query_examples.py`
 
-## 🎯 Features
+## Features
 
 ### Web Scraping
-- ✅ Dynamic pagination discovery
-- ✅ Comprehensive data extraction
-- ✅ Image and media collection
-- ✅ Structured content parsing
-- ✅ Error handling and retry logic
+- Dynamic pagination discovery
+- Comprehensive data extraction
+- Image and media collection
+- Structured content parsing
+- Error handling and retry logic
 
 ### Database
-- ✅ Normalized relational schema
-- ✅ Referential integrity
-- ✅ Performance optimization
-- ✅ Data validation
-- ✅ Import statistics
+- Normalized relational schema
+- Referential integrity
+- Performance optimization
+- Data validation
+- Import statistics
 
 ### Usability
-- ✅ Single-command execution
-- ✅ Progress reporting
-- ✅ Error detection
-- ✅ Help documentation
-- ✅ Cross-platform compatibility
+- Single-command execution
+- Progress reporting
+- Error detection
+- Help documentation
+- Cross-platform compatibility
 
-## 🚀 Performance
+## Performance
 
 - **Scraping Speed**: ~114 items per minute
 - **Database Size**: 15MB for 13,000+ records
@@ -277,4 +322,4 @@ ls missilery_scraper/data/
 
 ---
 
-**Ready to start?** Run `./scripts/setup_env.sh` to begin! 🎯
+**Ready to start?** Run `./scripts/setup_env.sh` to begin!
