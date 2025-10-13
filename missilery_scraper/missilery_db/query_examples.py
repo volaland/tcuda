@@ -19,15 +19,15 @@ from .constants import (
 
 def run_example_queries():
     """Run example queries to demonstrate database capabilities"""
-    
+
     # Initialize database connection
     db_manager = DatabaseManager("sqlite:///missilery.db")
     session = db_manager.get_session()
-    
+
     print(SEPARATOR_LINE)
     print(QUERY_EXAMPLES_TITLE)
     print(SEPARATOR_LINE)
-    
+
     # Query 1: Basic missile count by country
     print(f"\n{QUERY_SECTIONS['MISSILES_BY_COUNTRY']}")
     print(DASH_LINE)
@@ -39,10 +39,10 @@ def run_example_queries():
         ORDER BY missile_count DESC
         LIMIT {DEFAULT_QUERY_LIMIT}
     """))
-    
+
     for row in result:
         print(f"{row.country}: {row.missile_count} missiles")
-    
+
     # Query 2: Missiles by purpose
     print(f"\n{QUERY_SECTIONS['MISSILES_BY_PURPOSE']}")
     print(QUERY_SECTION_DASH)
@@ -54,10 +54,10 @@ def run_example_queries():
         ORDER BY missile_count DESC
         LIMIT {DEFAULT_QUERY_LIMIT}
     """))
-    
+
     for row in result:
         print(f"{row.purpose}: {row.missile_count} missiles")
-    
+
     # Query 3: Strategic missiles with detailed data
     print(f"\n{QUERY_SECTIONS['STRATEGIC_MISSILES']}")
     print(QUERY_SECTION_DASH_EXTRA_LONG)
@@ -71,11 +71,11 @@ def run_example_queries():
         ORDER BY m.range_km DESC
         LIMIT {DEFAULT_QUERY_LIMIT}
     """))
-    
+
     for row in result:
         range_info = row.range_detailed if row.range_detailed else f"{row.range_km} km"
         print(f"{row.name} ({row.country}): {range_info}")
-    
+
     # Query 4: Missiles with images
     print(f"\n{QUERY_SECTIONS['MISSILES_WITH_IMAGES']}")
     print(QUERY_SECTION_DASH)
@@ -87,10 +87,10 @@ def run_example_queries():
         ORDER BY image_count DESC
         LIMIT {DEFAULT_QUERY_LIMIT}
     """))
-    
+
     for row in result:
         print(f"{row.name}: {row.image_count} images")
-    
+
     # Query 5: Characteristics analysis
     print(f"\n{QUERY_SECTIONS['COMMON_CHARACTERISTICS']}")
     print(QUERY_SECTION_DASH_LONG)
@@ -101,15 +101,15 @@ def run_example_queries():
         ORDER BY frequency DESC
         LIMIT {DEFAULT_QUERY_LIMIT}
     """))
-    
+
     for row in result:
         print(f"{row.field_name}: {row.frequency} occurrences")
-    
+
     # Query 6: Range analysis
     print(f"\n{QUERY_SECTIONS['RANGE_ANALYSIS']}")
     print(QUERY_SECTION_DASH)
     result = session.execute(text(f"""
-        SELECT 
+        SELECT
             {RANGE_CATEGORY_SQL},
             COUNT(*) as count
         FROM missiles
@@ -117,15 +117,15 @@ def run_example_queries():
         GROUP BY range_category
         ORDER BY MIN(range_km)
     """))
-    
+
     for row in result:
         print(f"{row.range_category}: {row.count} missiles")
-    
+
     # Query 7: Development timeline
     print(f"\n{QUERY_SECTIONS['DEVELOPMENT_TIMELINE']}")
     print(QUERY_SECTION_DASH)
     result = session.execute(text(f"""
-        SELECT 
+        SELECT
             {YEAR_DECADE_SQL},
             COUNT(*) as count
         FROM missiles
@@ -133,15 +133,15 @@ def run_example_queries():
         GROUP BY decade
         ORDER BY MIN(year_developed)
     """))
-    
+
     for row in result:
         print(f"{row.decade}: {row.count} missiles")
-    
+
     # Query 8: Complex query - Missiles by country and base type
     print(f"\n{QUERY_SECTIONS['COUNTRY_BASE_TYPE']}")
     print(QUERY_SECTION_DASH_EXTRA_LONG)
     result = session.execute(text(f"""
-        SELECT 
+        SELECT
             c.name as country,
             bt.name as base_type,
             COUNT(m.id) as count
@@ -153,25 +153,25 @@ def run_example_queries():
         ORDER BY c.name, count DESC
         LIMIT {STATISTICS_LIMIT}
     """))
-    
+
     for row in result:
         print(f"{row.country} - {row.base_type}: {row.count} missiles")
-    
+
     # Query 9: Database statistics
     print(f"\n{QUERY_SECTIONS['DATABASE_STATISTICS']}")
     print(QUERY_SECTION_DASH)
     tables = ALL_TABLES
-    
+
     for table in tables:
         result = session.execute(text(f"SELECT COUNT(*) as count FROM {table}"))
         count = result.fetchone().count
         print(f"{table}: {count:,} records")
-    
+
     # Query 10: Sample detailed missile data
     print(f"\n{QUERY_SECTIONS['SAMPLE_DETAILED_DATA']}")
     print(QUERY_SECTION_DASH_LONG)
     result = session.execute(text(f"""
-        SELECT 
+        SELECT
             m.name,
             c.name as country,
             md.speed,
@@ -184,7 +184,7 @@ def run_example_queries():
         WHERE {MISSILES_WITH_CHARACTERISTICS_CONDITION}
         LIMIT {SAMPLE_DATA_LIMIT}
     """))
-    
+
     for row in result:
         print(f"\n{row.name} ({row.country})")
         if row.speed:
@@ -195,11 +195,11 @@ def run_example_queries():
             print(f"  Length: {row.length}")
         if row.engine_type:
             print(f"  Engine: {row.engine_type}")
-    
+
     print("\n" + SEPARATOR_LINE)
     print(QUERY_COMPLETED_TITLE)
     print(SEPARATOR_LINE)
-    
+
     # Close database connection
     session.close()
     db_manager.close()

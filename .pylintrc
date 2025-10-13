@@ -1,0 +1,38 @@
+[MASTER]
+score=no
+
+[MESSAGES CONTROL]
+disable=
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    unused-argument,
+    self-assigning-variable,
+    consider-using-f-string,
+    use-yield-from,
+    line-too-long,
+    trailing-whitespace,
+    missing-final-newline,
+    unused-import,
+    invalid-name,
+    unnecessary-pass,
+    super-with-arguments,
+    import-outside-toplevel,
+    too-many-nested-blocks,
+    wrong-import-order,
+    no-else-return,
+    broad-exception-caught,
+    unused-variable,
+    f-string-without-interpolation,
+    duplicate-code
+
+[FORMAT]
+max-line-length=120
+
+[VARIABLES]
+dummy-variables-rgx=_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_|^f$

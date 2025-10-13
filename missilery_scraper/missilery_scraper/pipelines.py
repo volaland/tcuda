@@ -1,14 +1,22 @@
+"""
+Scrapy pipelines for the Missilery scraper project.
+
+This module contains data processing pipelines that handle the separation
+and storage of scraped missile data into different file formats.
+"""
+
 import json
 import os
 
+
 class DataSeparationPipeline:
     """Pipeline to separate basic and detailed missile data into different files"""
-    
+
     def __init__(self):
         self.basic_data = []
         self.detailed_data = []
-    
-    def process_item(self, item, spider):
+
+    def process_item(self, item, spider):  # pylint: disable=unused-argument
         if 'missile' in item:
             if item.get('is_detailed', False):
                 # Create simplified detailed data entry
@@ -24,19 +32,19 @@ class DataSeparationPipeline:
             else:
                 self.basic_data.append(dict(item))
         return item
-    
+
     def close_spider(self, spider):
         """Write data to separate files when spider closes"""
         # Ensure all required directories exist
         os.makedirs('data', exist_ok=True)
         os.makedirs('data/detailed', exist_ok=True)
-        
+
         # Write basic data
         if self.basic_data:
             with open('data/missiles_basic.json', 'w', encoding='utf-8') as f:
                 json.dump(self.basic_data, f, ensure_ascii=False, indent=2)
             spider.logger.info(f"Saved {len(self.basic_data)} basic missile records to missiles_basic.json")
-        
+
         # Write detailed data
         if self.detailed_data:
             with open('data/missiles_detailed.json', 'w', encoding='utf-8') as f:

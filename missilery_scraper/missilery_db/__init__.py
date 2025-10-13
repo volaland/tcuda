@@ -38,7 +38,7 @@ __author__ = "Missilery Scraper Team"
 __all__ = [
     "Base",
     "Country",
-    "Purpose", 
+    "Purpose",
     "BaseType",
     "WarheadType",
     "GuidanceSystem",

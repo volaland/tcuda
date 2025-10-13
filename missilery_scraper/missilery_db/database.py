@@ -6,12 +6,12 @@ class DatabaseManager:
     def __init__(self, db_path="missilery_data.db"):
         self.db_path = db_path
         self.init_database()
-    
+
     def init_database(self):
         """Initialize database with required tables"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         # Stage 1: Raw data tables
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS index_pages (
@@ -21,7 +21,7 @@ class DatabaseManager:
                 scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS detail_pages (
                 url TEXT PRIMARY KEY,
@@ -30,7 +30,7 @@ class DatabaseManager:
                 scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+
         # Stage 2: Structured data tables
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS missiles (
@@ -51,7 +51,7 @@ class DatabaseManager:
                 FOREIGN KEY (detail_page_url) REFERENCES detail_pages(url)
             )
         ''')
-        
+
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS technical_characteristics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,41 +62,41 @@ class DatabaseManager:
                 FOREIGN KEY (missile_id) REFERENCES missiles(id)
             )
         ''')
-        
+
         conn.commit()
         conn.close()
-    
+
     def save_index_page(self, url, page_number, html_content):
         """Save index page data"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             INSERT OR REPLACE INTO index_pages (url, page_number, html_content, scraped_at)
             VALUES (?, ?, ?, ?)
         ''', (url, page_number, html_content, datetime.now()))
-        
+
         conn.commit()
         conn.close()
-    
+
     def save_detail_page(self, url, missile_name, html_content):
         """Save detail page data"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             INSERT OR REPLACE INTO detail_pages (url, missile_name, html_content, scraped_at)
             VALUES (?, ?, ?, ?)
         ''', (url, missile_name, html_content, datetime.now()))
-        
+
         conn.commit()
         conn.close()
-    
+
     def save_missile(self, missile_data):
         """Save structured missile data"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         cursor.execute('''
             INSERT INTO missiles (
                 name, purpose, base, warhead, guidance_system, country,
@@ -115,26 +115,26 @@ class DatabaseManager:
             missile_data.get('index_page_url'),
             missile_data.get('detail_page_url')
         ))
-        
+
         missile_id = cursor.lastrowid
         conn.commit()
         conn.close()
         return missile_id
-    
+
     def save_technical_characteristics(self, missile_id, characteristics):
         """Save technical characteristics for a missile"""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+
         for char_name, char_value in characteristics.items():
             cursor.execute('''
                 INSERT INTO technical_characteristics (missile_id, characteristic_name, characteristic_value)
                 VALUES (?, ?, ?)
             ''', (missile_id, char_name, char_value))
-        
+
         conn.commit()
         conn.close()
-    
+
     def get_missiles_count(self):
         """Get total number of missiles in database"""
         conn = sqlite3.connect(self.db_path)

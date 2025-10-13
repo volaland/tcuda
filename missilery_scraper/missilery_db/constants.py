@@ -102,7 +102,7 @@ QUERY_SECTIONS = {
 
 # Range category SQL patterns
 RANGE_CATEGORY_SQL = """
-    CASE 
+    CASE
         WHEN range_km < {short} THEN 'Short (<{short}km)'
         WHEN range_km < {medium} THEN 'Medium ({short}-{medium}km)'
         WHEN range_km < {long} THEN 'Long ({medium}-{long}km)'
@@ -116,7 +116,7 @@ RANGE_CATEGORY_SQL = """
 
 # Year decade SQL patterns
 YEAR_DECADE_SQL = """
-    CASE 
+    CASE
         WHEN year_developed < 1950 THEN 'Pre-1950'
         WHEN year_developed < 1960 THEN '1950s'
         WHEN year_developed < 1970 THEN '1960s'
@@ -252,7 +252,7 @@ QUERY_TEMPLATES = {
         ORDER BY missile_count DESC
         LIMIT {limit}
     """,
-    
+
     'MISSILES_BY_PURPOSE': """
         SELECT p.name as purpose, COUNT(m.id) as missile_count
         FROM {purposes_table} p
@@ -261,7 +261,7 @@ QUERY_TEMPLATES = {
         ORDER BY missile_count DESC
         LIMIT {limit}
     """,
-    
+
     'MISSILES_WITH_IMAGES': """
         SELECT m.name, COUNT(mi.id) as image_count
         FROM {missiles_table} m

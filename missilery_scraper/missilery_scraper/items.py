@@ -1,4 +1,12 @@
+"""
+Scrapy items for the Missilery scraper project.
+
+This module defines the data structures used to store scraped missile data
+in a structured format for processing and storage.
+"""
+
 import scrapy
+
 
 class IndexPageItem(scrapy.Item):
     """Item for storing index page data"""
@@ -29,7 +37,7 @@ class MissileItem(scrapy.Item):
     detail_page_url = scrapy.Field()
     page_number = scrapy.Field()
     technical_characteristics = scrapy.Field()
-    
+
     # Detailed information fields
     is_detailed = scrapy.Field()
     range_detailed = scrapy.Field()
@@ -58,7 +66,7 @@ class MissileItem(scrapy.Item):
     quantity = scrapy.Field()
     other_characteristics = scrapy.Field()
     images = scrapy.Field()
-    
+
     # New structured content fields
     structured_content = scrapy.Field()
     characteristics_table = scrapy.Field()
